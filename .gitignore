@@ -1,0 +1,18 @@
+# Swift Package Manager and Xcode outputs
+.build/
+.swiftpm/
+DerivedData/
+*.xcuserstate
+
+# Locally packaged app and archives
+dist/
+
+# Personal editor and macOS files
+.vscode/
+.DS_Store
+*.swp
+
+# Local secrets and logs
+.env
+.env.*
+*.log
