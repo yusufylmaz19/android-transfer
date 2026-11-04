@@ -6,6 +6,7 @@ import Network
 struct WirelessEntry: Codable, Identifiable {
     let name: String
     let isDirectory: Bool
+    let isHidden: Bool?
     var id: String { name }
 }
 
@@ -58,9 +59,12 @@ enum WirelessCode {
     @Published var path = ""
     @Published var entries: [WirelessEntry] = []
     @Published var selectedNames: Set<String> = []
+    @Published var showHidden = false
     @Published var status = "Kablosuz paylaşımı başlatın veya telefonun kodunu tarayın."
     @Published var busy = false
     @Published var transferItems: [WirelessTransferItem] = []
+    @Published var showTransferSummary = false
+    private var transferBatch = 0
     @Published var localAddress = ""
     private let token = UUID().uuidString.replacingOccurrences(of: "-", with: "")
     private var listener: NWListener?
@@ -283,9 +287,11 @@ enum WirelessCode {
                 let candidate = file.appendingPathComponent(name).resolvingSymlinksInPath()
                 return candidate.path.hasPrefix(canonicalRoot.path + "/")
             }.map { name -> WirelessEntry in
+                let candidate = file.appendingPathComponent(name)
                 var directory: ObjCBool = false
-                _ = FileManager.default.fileExists(atPath: file.appendingPathComponent(name).path, isDirectory: &directory)
-                return WirelessEntry(name: name, isDirectory: directory.boolValue)
+                _ = FileManager.default.fileExists(atPath: candidate.path, isDirectory: &directory)
+                let hidden = name.hasPrefix(".") || ((try? candidate.resourceValues(forKeys: [.isHiddenKey]).isHidden) == true)
+                return WirelessEntry(name: name, isDirectory: directory.boolValue, isHidden: hidden)
             }
             return response(200, (try? JSONEncoder().encode(WirelessList(entries: entries))) ?? Data())
         }
@@ -390,7 +396,7 @@ enum WirelessCode {
         guard !selectedLocation.isEmpty else { return }
         do {
             let result = try JSONDecoder().decode(WirelessList.self, from: await request(endpoint("/list", path: path)))
-            entries = result.entries
+            entries = showHidden ? result.entries : result.entries.filter { $0.isHidden != true && !$0.name.hasPrefix(".") }
             selectedNames = []
             status = "\(entries.count) öğe listelendi."
         } catch { entries = []; selectedNames = []; status = error.localizedDescription }
@@ -400,6 +406,22 @@ enum WirelessCode {
         guard entry.isDirectory else { return }
         path = path.isEmpty ? entry.name : path + "/" + entry.name
         await loadDirectory()
+    }
+
+    func toggleHidden() async {
+        showHidden.toggle()
+        if !showHidden && path.split(separator: "/").contains(where: { $0.hasPrefix(".") }) {
+            path = ""
+        }
+        await loadDirectory()
+    }
+
+    private func hideTransferSummary(after batch: Int) {
+        Task {
+            try? await Task.sleep(for: .seconds(4))
+            guard batch == transferBatch, !busy else { return }
+            showTransferSummary = false
+        }
     }
 
     func goUp() async {
@@ -418,7 +440,10 @@ enum WirelessCode {
         busy = true
         defer { busy = false }
         let names = selectedNames.sorted()
+        transferBatch += 1
+        let batch = transferBatch
         transferItems = names.map { WirelessTransferItem(name: $0) }
+        showTransferSummary = true
         for (index, name) in names.enumerated() {
             do {
                 guard entries.first(where: { $0.name == name })?.isDirectory == false else {
@@ -447,6 +472,7 @@ enum WirelessCode {
         }
         let failed = transferItems.filter(\.failed).count
         status = "Mac'e indirme: \(names.count - failed) tamamlandı, \(failed) hata."
+        hideTransferSummary(after: batch)
     }
 
     func upload() async {
@@ -457,7 +483,10 @@ enum WirelessCode {
         busy = true
         defer { busy = false }
         let files = panel.urls
+        transferBatch += 1
+        let batch = transferBatch
         transferItems = files.map { WirelessTransferItem(name: $0.lastPathComponent) }
+        showTransferSummary = true
         for (index, file) in files.enumerated() {
             do {
                 let size = try file.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
@@ -476,5 +505,6 @@ enum WirelessCode {
         await loadDirectory()
         let failed = transferItems.filter(\.failed).count
         status = "Telefona gönderme: \(files.count - failed) tamamlandı, \(failed) hata. Hedef: /storage/emulated/0\(path.isEmpty ? "" : "/" + path)"
+        hideTransferSummary(after: batch)
     }
 }

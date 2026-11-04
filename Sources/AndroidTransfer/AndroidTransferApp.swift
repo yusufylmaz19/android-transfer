@@ -42,6 +42,7 @@ enum ADBError: LocalizedError {
     @Published var path = "/storage/emulated/0"
     @Published var items: [PhoneItem] = []
     @Published var selection: Set<String> = []
+    @Published var showHidden = false
     @Published var destination: URL? = nil
     @Published var status = "Telefonu USB ile bağlayıp USB hata ayıklamaya izin verin."
     @Published var busy = false
@@ -141,7 +142,7 @@ enum ADBError: LocalizedError {
             let lines = sections[0].split(separator: "\n").map(String.init)
             let paths = lines.filter { $0.hasPrefix(prefix) }
             let names = paths.map { String($0.dropFirst(prefix.count)) }
-                .filter { !$0.isEmpty && !$0.contains("/") }
+                .filter { !$0.isEmpty && !$0.contains("/") && (showHidden || !$0.hasPrefix(".")) }
             let directories = Set(sections[1].split(separator: "\n").map(String.init))
             items = names.map { PhoneItem(name: $0, isDirectory: directories.contains(prefix + $0)) }
             items.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
@@ -155,6 +156,14 @@ enum ADBError: LocalizedError {
     func open(_ item: PhoneItem) async {
         guard item.isDirectory else { return }
         path += "/" + item.name
+        await loadDirectory()
+    }
+
+    func toggleHidden() async {
+        showHidden.toggle()
+        if !showHidden && path.dropFirst(storageRoot.count).split(separator: "/").contains(where: { $0.hasPrefix(".") }) {
+            path = storageRoot
+        }
         await loadDirectory()
     }
 
@@ -594,6 +603,13 @@ struct ContentView: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Spacer()
+                Button { Task { await model.toggleHidden() } } label: {
+                    Label(model.showHidden ? "Gizlileri Gizle" : "Gizlileri Göster",
+                          systemImage: model.showHidden ? "eye.slash" : "eye")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .help(model.showHidden ? "Gizli dosya ve klasörleri gizle" : "Gizli dosya ve klasörleri göster")
+                .disabled(model.busy || !isConnected)
                 Button { Task { await model.loadDirectory() } } label: {
                     Label("Yenile", systemImage: "arrow.clockwise")
                         .font(.system(size: 12, weight: .semibold))
@@ -841,8 +857,13 @@ private struct WirelessView: View {
                             .font(.system(size: 25, weight: .bold, design: .rounded))
                     }
                     Spacer()
+                    Button { Task { await model.toggleHidden() } } label: {
+                        Label(model.showHidden ? "Gizlileri Gizle" : "Gizlileri Göster",
+                              systemImage: model.showHidden ? "eye.slash" : "eye")
+                    }
+                    .disabled(model.peerLocations.isEmpty || model.busy)
                     Button("Yenile") { Task { await model.loadDirectory() } }
-                        .disabled(model.peerLocations.isEmpty)
+                        .disabled(model.peerLocations.isEmpty || model.busy)
                 }
                 if !model.peerLocations.isEmpty {
                     HStack {
@@ -904,7 +925,7 @@ private struct WirelessView: View {
                     }
                 }
                 .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16))
-                if !model.transferItems.isEmpty {
+                if model.showTransferSummary && !model.transferItems.isEmpty {
                     VStack(alignment: .leading, spacing: 9) {
                         let completed = model.transferItems.filter(\.finished).count
                         HStack {
@@ -947,6 +968,13 @@ private struct WirelessView: View {
                     Button("Telefona Gönder") { Task { await model.upload() } }
                         .disabled(model.peerLocations.isEmpty || model.busy)
                     Spacer()
+                    if !model.transferItems.isEmpty && !model.busy {
+                        Button(model.showTransferSummary ? "Gizle" : "Ayrıntılar") {
+                            model.showTransferSummary.toggle()
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Theme.blue)
+                    }
                     Text(model.status).font(.system(size: 11)).foregroundStyle(Theme.muted).lineLimit(2)
                 }
                 .buttonStyle(.borderedProminent)

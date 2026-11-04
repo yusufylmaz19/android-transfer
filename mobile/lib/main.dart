@@ -40,9 +40,16 @@ class TransferApp extends StatelessWidget {
 class RemoteEntry {
   final String name;
   final bool isDirectory;
-  const RemoteEntry(this.name, this.isDirectory);
-  factory RemoteEntry.fromJson(Map<String, dynamic> json) =>
-      RemoteEntry(json['name'] as String, json['isDirectory'] as bool);
+  final bool isHidden;
+  const RemoteEntry(this.name, this.isDirectory, this.isHidden);
+  factory RemoteEntry.fromJson(Map<String, dynamic> json) {
+    final name = json['name'] as String;
+    return RemoteEntry(
+      name,
+      json['isDirectory'] as bool,
+      json['isHidden'] as bool? ?? name.startsWith('.'),
+    );
+  }
 }
 
 class RemoteLocation {
@@ -86,7 +93,10 @@ class _TransferHomeState extends State<TransferHome> {
   final selected = <String>{};
   bool access = false;
   bool working = false;
+  bool showHidden = false;
+  bool showTransferSummary = false;
   List<TransferItem> transferItems = [];
+  int transferBatch = 0;
   int page = 0;
   String status = 'Paylaşım için dosya erişimi verin.';
 
@@ -233,14 +243,14 @@ class _TransferHomeState extends State<TransferHome> {
             .toList();
         response.write(
           jsonEncode({
-            'entries': items
-                .map(
-                  (e) => {
-                    'name': e.uri.pathSegments.where((s) => s.isNotEmpty).last,
-                    'isDirectory': e is Directory,
-                  },
-                )
-                .toList(),
+            'entries': items.map((e) {
+              final name = e.uri.pathSegments.where((s) => s.isNotEmpty).last;
+              return {
+                'name': name,
+                'isDirectory': e is Directory,
+                'isHidden': name.startsWith('.'),
+              };
+            }).toList(),
           }),
         );
         return;
@@ -447,6 +457,7 @@ class _TransferHomeState extends State<TransferHome> {
       setState(() {
         entries = (data['entries'] as List)
             .map((e) => RemoteEntry.fromJson(e as Map<String, dynamic>))
+            .where((e) => showHidden || !e.isHidden)
             .toList();
         entries.sort(
           (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
@@ -478,12 +489,23 @@ class _TransferHomeState extends State<TransferHome> {
     _loadDirectory();
   }
 
+  void _hideTransferSummary(int batch) {
+    Future.delayed(const Duration(seconds: 4), () {
+      if (mounted && !working && batch == transferBatch) {
+        setState(() => showTransferSummary = false);
+      }
+    });
+  }
+
   Future<void> _download() async {
     if (selected.isEmpty) return;
     final names = selected.toList()..sort();
+    transferBatch++;
+    final batch = transferBatch;
     setState(() {
       working = true;
       transferItems = names.map(TransferItem.new).toList();
+      showTransferSummary = true;
     });
     for (var index = 0; index < names.length; index++) {
       final name = names[index];
@@ -536,15 +558,19 @@ class _TransferHomeState extends State<TransferHome> {
         status =
             'Telefona indirme: ${names.length - failed} tamamlandı, $failed hata. Hedef: /storage/emulated/0/Download';
       });
+      _hideTransferSummary(batch);
     }
   }
 
   Future<void> _upload() async {
     final result = await FilePicker.pickFiles();
     if (result.isEmpty) return;
+    transferBatch++;
+    final batch = transferBatch;
     setState(() {
       working = true;
       transferItems = result.map((item) => TransferItem(item.name)).toList();
+      showTransferSummary = true;
     });
     for (var index = 0; index < result.length; index++) {
       final item = result[index];
@@ -575,6 +601,7 @@ class _TransferHomeState extends State<TransferHome> {
         status =
             'Mac’e gönderme: ${result.length - failed} tamamlandı, $failed hata.';
       });
+      _hideTransferSummary(batch);
     }
   }
 
@@ -646,7 +673,7 @@ class _TransferHomeState extends State<TransferHome> {
               ),
             ),
             Expanded(child: page == 0 ? _phonePanel() : _macPanel()),
-            if (transferItems.isNotEmpty)
+            if (showTransferSummary && transferItems.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: _transferSummary(),
@@ -668,6 +695,16 @@ class _TransferHomeState extends State<TransferHome> {
                       maxLines: 2,
                     ),
                   ),
+                  if (transferItems.isNotEmpty && !working)
+                    TextButton(
+                      onPressed: () => setState(
+                        () => showTransferSummary = !showTransferSummary,
+                      ),
+                      child: Text(
+                        showTransferSummary ? 'Gizle' : 'Ayrıntılar',
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -975,6 +1012,24 @@ class _TransferHomeState extends State<TransferHome> {
               IconButton(
                 onPressed: path.isEmpty ? null : _up,
                 icon: const Icon(Icons.arrow_upward_rounded),
+              ),
+              IconButton(
+                tooltip: showHidden ? 'Gizlileri gizle' : 'Gizlileri göster',
+                onPressed: () {
+                  setState(() {
+                    showHidden = !showHidden;
+                    if (!showHidden &&
+                        path.split('/').any((part) => part.startsWith('.'))) {
+                      path = '';
+                    }
+                  });
+                  _loadDirectory();
+                },
+                icon: Icon(
+                  showHidden
+                      ? Icons.visibility_off_rounded
+                      : Icons.visibility_rounded,
+                ),
               ),
               IconButton(
                 onPressed: _loadDirectory,
