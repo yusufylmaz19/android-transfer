@@ -429,7 +429,17 @@ enum WirelessCode {
                 let relative = path.isEmpty ? name : path + "/" + name
                 transferItems[index].detail = "İndiriliyor"
                 let data = try await request(endpoint("/file", path: relative), transferIndex: index)
-                try data.write(to: target, options: [.atomic, .withoutOverwriting])
+                let temporary = folder.appendingPathComponent(".\(UUID().uuidString).transfer-part")
+                do {
+                    try data.write(to: temporary, options: .atomic)
+                    guard !FileManager.default.fileExists(atPath: target.path) else {
+                        throw WirelessError.message("Hedefte aynı ad var: \(name)")
+                    }
+                    try FileManager.default.moveItem(at: temporary, to: target)
+                } catch {
+                    try? FileManager.default.removeItem(at: temporary)
+                    throw error
+                }
                 finishTransfer(index)
             } catch {
                 finishTransfer(index, error: error)
