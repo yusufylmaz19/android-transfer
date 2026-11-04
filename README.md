@@ -1,6 +1,8 @@
 # Android Transfer — kurulum ve kullanım
 
-Android telefon ile Mac arasında USB kablosuyla dosya kopyalamak için yerel uygulama. Telefona ayrıca bir uygulama yüklemeniz veya hesap açmanız gerekmez.
+Android telefon ile Mac arasında kablolu veya yerel ağ üzerinden dosya kopyalamak için uygulama. **Kablolu** modda telefona uygulama yüklenmez. **Kablosuz** mod için bu projenin Android APK'sı telefona kurulur.
+
+> Kablosuz mod şu anda yerel ağ denemesidir. Aynı Wi-Fi veya telefonun erişim noktası içindeki özel IP adreslerinden bağlantı kabul eder. Aktarım protokolü henüz şifreli değildir; farklı ağlarda kullanmak için modem portu açmayın. Büyük dosya, klasör aktarımı, taşıma/silme ve bağlantı kesintisi sonrası devam ettirme kablosuz modda henüz tamamlanmadı.
 
 ## Gerekli olanlar
 
@@ -8,6 +10,18 @@ Android telefon ile Mac arasında USB kablosuyla dosya kopyalamak için yerel uy
 - Android telefon ve **veri aktarabilen** USB kablosu
 - AndroidTransfer.app dosyası
 - Google'ın ücretsiz **Android SDK Platform Tools** paketi (adb için)
+
+Kablosuz kullanımda USB kablosu ve ADB gerekmez; Mac uygulaması ve telefondaki `app-arm64-v8a-release.apk` aynı yerel ağda olmalıdır.
+
+## Kablosuz modun kurulumu ve kullanımı
+
+1. Samsung S24 için yerel derlemedeki `mobile/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk` dosyasını telefona yükleyin. Git deposundaki kaynaklardan `flutter build apk --release --split-per-abi` komutuyla yeniden üretilebilir. Bu yerel APK şimdilik geliştirme anahtarıyla imzalanmıştır; mağaza/halka açık dağıtım paketi değildir. Telefon kurulumu engellerse yalnızca kendi derlediğiniz/güvendiğiniz bu APK için kurulum izni verin.
+2. Telefonda Android Transfer'i açın, **Telefonum > Dosya erişimi ver** yoluyla Android'in **Tüm dosyalara erişim** iznini açın. Kablosuz gezgin telefonun `/storage/emulated/0` dizinindeki gerçek klasör adlarını gösterir. Android'in koruduğu bazı uygulama özel klasörleri yine açılamaz.
+3. Mac ve telefon aynı Wi-Fi'deyken veya Mac telefonun mobil erişim noktasına bağlıyken Mac uygulamasında **Kablosuz > Paylaşımı Başlat**'a basın. Telefon uygulamasında **Mac dosyaları > QR tara** ile Mac QR kodunu okutun. Telefon, Mac kullanıcı klasörünün içeriğini gerçek klasör adlarıyla gösterir; `Desktop`, `Downloads` ve `Pictures` bu dizinin içindedir. macOS'un izin vermediği klasörler açılamaz.
+4. Mac'ten telefon dosyalarını açmak için telefonda **Telefonum > Paylaşımı başlat**'a basın. Mac'te **Kamerayla Tara** ile telefon QR kodunu okutun. Kamera yoksa telefonda **Kodu kopyala** deyip Mac'teki alana yapıştırın.
+5. Seçilen dosyaları iki uygulamada da **indir/gönder** düğmeleriyle kopyalayın. Telefondan indirilen Mac dosyaları telefonun `/storage/emulated/0/Download` klasörüne; Mac'ten telefona gönderilen dosyalar kablosuz gezginde açık olan telefon klasörüne gider. Çoklu aktarımda her dosyanın ilerlemesi ve sonucu **Aktarım durumu** bölümünde görünür; hatalı dosya diğerlerini durdurmaz. Hedefte aynı isim varsa o dosya aktarılmaz. Bu sürüm dosyaları silmez veya taşımaz.
+
+Mac'in Masaüstü/İndirilenler/Resimler klasörlerini okuyabilmesi için macOS dosya erişim izni isteyebilir. İzni reddederseniz ilgili klasör açılamaz. Uygulama açık ve paylaşım etkin olduğu sürece bağlantı kabul eder; işiniz bitince her iki cihazda paylaşımı durdurun.
 
 ## 1. Mac'e Platform Tools kurun
 

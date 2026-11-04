@@ -20,6 +20,8 @@ cat > dist/AndroidTransfer.app/Contents/Info.plist <<'PLIST'
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>0.1.0</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
+<key>NSCameraUsageDescription</key><string>Telefonun bağlantı QR kodunu taramak için kamera kullanılır.</string>
+<key>NSLocalNetworkUsageDescription</key><string>Telefonla yerel ağ üzerinden dosya aktarımı için bağlantı kurulur.</string>
 </dict></plist>
 PLIST
 echo "Hazır: dist/AndroidTransfer.app"

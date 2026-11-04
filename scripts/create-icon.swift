@@ -6,9 +6,9 @@ image.lockFocus()
 
 let bounds = NSRect(x: 42, y: 42, width: 940, height: 940)
 let tile = NSBezierPath(roundedRect: bounds, xRadius: 210, yRadius: 210)
-NSColor(calibratedRed: 0.065, green: 0.09, blue: 0.15, alpha: 1).setFill()
+NSColor(calibratedRed: 0.97, green: 0.95, blue: 0.91, alpha: 1).setFill()
 tile.fill()
-NSColor(calibratedWhite: 1, alpha: 0.13).setStroke()
+NSColor(calibratedRed: 0.87, green: 0.85, blue: 0.83, alpha: 1).setStroke()
 tile.lineWidth = 12
 tile.stroke()
 
@@ -40,11 +40,11 @@ func drawArrow(from start: NSPoint, to end: NSPoint, color: NSColor, pointsRight
 
 drawArrow(
     from: NSPoint(x: 270, y: 650), to: NSPoint(x: 735, y: 650),
-    color: NSColor(calibratedRed: 0.37, green: 0.88, blue: 0.80, alpha: 1), pointsRight: true
+    color: NSColor(calibratedRed: 0.34, green: 0.48, blue: 0.91, alpha: 1), pointsRight: true
 )
 drawArrow(
     from: NSPoint(x: 754, y: 365), to: NSPoint(x: 289, y: 365),
-    color: NSColor(calibratedRed: 1, green: 0.43, blue: 0.36, alpha: 1), pointsRight: false
+    color: NSColor(calibratedRed: 0.91, green: 0.40, blue: 0.57, alpha: 1), pointsRight: false
 )
 
 image.unlockFocus()

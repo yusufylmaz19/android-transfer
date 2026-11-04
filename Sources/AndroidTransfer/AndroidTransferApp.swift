@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -363,37 +364,80 @@ enum ADBError: LocalizedError {
 }
 
 private enum Theme {
-    static let canvas = Color(red: 0.055, green: 0.075, blue: 0.115)
-    static let rail = Color(red: 0.09, green: 0.12, blue: 0.18)
-    static let surface = Color(red: 0.12, green: 0.155, blue: 0.22)
-    static let line = Color.white.opacity(0.10)
-    static let text = Color(red: 0.96, green: 0.97, blue: 0.99)
-    static let muted = Color(red: 0.61, green: 0.67, blue: 0.75)
-    static let coral = Color(red: 1.0, green: 0.43, blue: 0.36)
-    static let mint = Color(red: 0.37, green: 0.88, blue: 0.80)
-    static let blue = Color(red: 0.46, green: 0.67, blue: 1.0)
+    static let canvas = Color(red: 0.97, green: 0.95, blue: 0.91)
+    static let rail = Color(red: 0.99, green: 0.98, blue: 0.96)
+    static let surface = Color(red: 1, green: 1, blue: 1)
+    static let line = Color(red: 0.87, green: 0.85, blue: 0.83)
+    static let text = Color(red: 0.13, green: 0.16, blue: 0.24)
+    static let muted = Color(red: 0.43, green: 0.45, blue: 0.50)
+    static let coral = Color(red: 0.91, green: 0.40, blue: 0.57)
+    static let mint = Color(red: 0.34, green: 0.48, blue: 0.91)
+    static let blue = Color(red: 0.36, green: 0.54, blue: 0.96)
 }
 
 struct ContentView: View {
     @StateObject private var model = TransferModel()
+    @StateObject private var wireless = WirelessModel()
+    @State private var mode = 0
     @State private var pendingDeletion: PhoneItem?
     @State private var dropTargeted = false
 
     private var isConnected: Bool { !model.selectedDevice.isEmpty }
 
     var body: some View {
-        HStack(spacing: 0) {
-            ScrollView { sidebar }
-                .frame(width: 300)
-                .background(Theme.rail)
-            Rectangle().fill(Theme.line).frame(width: 1)
-            mainContent
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Theme.canvas)
+        GeometryReader { geometry in
+        VStack(spacing: 0) {
+            HStack {
+                HStack(spacing: 10) {
+                    Image(systemName: "arrow.left.arrow.right")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 34, height: 34)
+                        .background(Theme.blue, in: RoundedRectangle(cornerRadius: 10))
+                    Text("Android Transfer").font(.system(size: 16, weight: .bold, design: .rounded))
+                }
+                Spacer()
+                Picker("Paylaşım türü", selection: $mode) {
+                    Text("Kablolu").tag(0)
+                    Text("Kablosuz").tag(1)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 250)
+                Spacer()
+                Text(mode == 0 ? "USB" : "Wi-Fi")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(Theme.blue)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .background(Theme.blue.opacity(0.10), in: Capsule())
+            }
+            .padding(.horizontal, 28)
+            .frame(height: 66)
+            .background(Theme.rail)
+            Rectangle().fill(Theme.line).frame(height: 1)
+            Group { if mode == 0 {
+                HStack(spacing: 0) {
+                    ScrollView { sidebar }
+                        .frame(width: 300)
+                        .background(Theme.rail)
+                    Rectangle().fill(Theme.line).frame(width: 1)
+                    mainContent
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Theme.canvas)
+                }
+            } else {
+                WirelessView(model: wireless)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Theme.canvas)
+            } }
+            .frame(width: geometry.size.width, height: max(0, geometry.size.height - 67))
+            .clipped()
+        }
+        .frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
         }
         .foregroundStyle(Theme.text)
-        .frame(minWidth: 980, minHeight: 670)
-        .preferredColorScheme(.dark)
+        .frame(minWidth: 800, minHeight: 520)
+        .preferredColorScheme(.light)
         .task {
             await model.refreshDevices()
             while !Task.isCancelled {
@@ -714,6 +758,246 @@ struct ContentView: View {
             .font(.system(size: 10, weight: .bold))
             .tracking(1.8)
             .foregroundStyle(Theme.muted)
+    }
+}
+
+private struct WirelessView: View {
+    @ObservedObject var model: WirelessModel
+    @State private var code = ""
+    @State private var showingScanner = false
+    @State private var cameraIssue: String?
+
+    var body: some View {
+        HStack(spacing: 24) {
+            ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("KABLOSUZ PAYLAŞIM")
+                    .font(.system(size: 11, weight: .bold)).tracking(2).foregroundStyle(Theme.blue)
+                Text("İki cihaz. Tek akış.")
+                    .font(.system(size: 30, weight: .bold, design: .rounded))
+                Text("QR ile eşleştir, yerel ağda iki yönde dosya aktar.")
+                    .font(.system(size: 13)).foregroundStyle(Theme.muted)
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack {
+                        Image(systemName: "qrcode").foregroundStyle(Theme.coral)
+                        Text("Mac'in QR kodu").font(.system(size: 17, weight: .semibold))
+                        Spacer()
+                    }
+                    if let image = WirelessCode.image(for: model.qrValue), model.active {
+                        Image(nsImage: image)
+                            .interpolation(.none)
+                            .resizable()
+                            .frame(width: 184, height: 184)
+                            .padding(12)
+                            .background(.white, in: RoundedRectangle(cornerRadius: 14))
+                            .frame(maxWidth: .infinity)
+                    } else {
+                        Image(systemName: "wifi")
+                            .font(.system(size: 45, weight: .ultraLight))
+                            .foregroundStyle(Theme.blue)
+                            .frame(maxWidth: .infinity, minHeight: 208)
+                    }
+                    Text(model.active ? "Telefonda uygulamayı açıp bu kodu tara." : "Paylaşımı başlatınca bağlantı kodu görünür.")
+                        .font(.system(size: 12)).foregroundStyle(Theme.muted)
+                    Button(model.active ? "Paylaşımı Durdur" : "Paylaşımı Başlat") {
+                        model.active ? model.stop() : model.start()
+                    }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 42)
+                    .background(Theme.blue, in: RoundedRectangle(cornerRadius: 10))
+                }
+                .padding(20)
+                .background(Theme.surface, in: RoundedRectangle(cornerRadius: 18))
+
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Telefonun bağlantı kodu")
+                        .font(.system(size: 16, weight: .semibold))
+                    TextField("androidtransfer://pair?...", text: $code)
+                        .textFieldStyle(.roundedBorder)
+                    HStack(spacing: 16) {
+                        Button("Kamerayla Tara") { Task { await openScanner() } }
+                        Button("Koda Bağlan") { Task { await model.connect(code) } }
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Theme.blue)
+                    .font(.system(size: 13, weight: .bold))
+                }
+                .padding(20)
+                .background(Theme.surface, in: RoundedRectangle(cornerRadius: 18))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(width: 320)
+
+            VStack(alignment: .leading, spacing: 15) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("TELEFON DOSYALARI")
+                            .font(.system(size: 11, weight: .bold)).tracking(1.8).foregroundStyle(Theme.coral)
+                        Text("Kablosuz gezgin")
+                            .font(.system(size: 25, weight: .bold, design: .rounded))
+                    }
+                    Spacer()
+                    Button("Yenile") { Task { await model.loadDirectory() } }
+                        .disabled(model.peerLocations.isEmpty)
+                }
+                if !model.peerLocations.isEmpty {
+                    HStack {
+                        if model.peerLocations.count == 1 {
+                            Text(model.peerLocations[0].name)
+                                .font(.system(size: 12, design: .monospaced))
+                        } else {
+                            Picker("Klasör", selection: $model.selectedLocation) {
+                                ForEach(model.peerLocations) { location in Text(location.name).tag(location.id) }
+                            }
+                            .frame(width: 190)
+                            .onChange(of: model.selectedLocation) { _ in
+                                model.path = ""
+                                Task { await model.loadDirectory() }
+                            }
+                        }
+                        Button { Task { await model.goUp() } } label: { Image(systemName: "arrow.up") }
+                            .disabled(model.path.isEmpty)
+                        Text(model.path.isEmpty ? "/" : "/" + model.path)
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundStyle(Theme.muted)
+                        Spacer()
+                    }
+                    .padding(12)
+                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
+                }
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(model.entries) { entry in
+                            HStack(spacing: 12) {
+                                Button {
+                                    if model.selectedNames.contains(entry.name) { model.selectedNames.remove(entry.name) }
+                                    else { model.selectedNames.insert(entry.name) }
+                                } label: {
+                                    Image(systemName: model.selectedNames.contains(entry.name) ? "checkmark.circle.fill" : "circle")
+                                        .foregroundStyle(Theme.blue)
+                                }
+                                .buttonStyle(.plain)
+                                Image(systemName: entry.isDirectory ? "folder.fill" : "doc.fill")
+                                    .foregroundStyle(entry.isDirectory ? Theme.blue : Theme.coral)
+                                Text(entry.name).font(.system(size: 13))
+                                    .onTapGesture(count: 2) { Task { await model.open(entry) } }
+                                Spacer()
+                                if entry.isDirectory {
+                                    Button { Task { await model.open(entry) } } label: { Image(systemName: "chevron.right") }
+                                        .buttonStyle(.plain)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .frame(height: 48)
+                            Divider().padding(.leading, 16)
+                        }
+                    }
+                }
+                .overlay {
+                    if model.entries.isEmpty {
+                        Text(model.peerLocations.isEmpty ? "Telefonun QR koduyla eşleştir." : "Bu klasör boş.")
+                            .font(.system(size: 13)).foregroundStyle(Theme.muted)
+                    }
+                }
+                .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16))
+                if !model.transferItems.isEmpty {
+                    VStack(alignment: .leading, spacing: 9) {
+                        let completed = model.transferItems.filter(\.finished).count
+                        HStack {
+                            Text("Aktarım durumu").font(.system(size: 13, weight: .semibold))
+                            Spacer()
+                            Text("\(completed) / \(model.transferItems.count)")
+                                .font(.system(size: 12, design: .monospaced))
+                                .foregroundStyle(Theme.muted)
+                        }
+                        ProgressView(value: model.transferItems.reduce(0) { $0 + $1.progress },
+                                     total: Double(model.transferItems.count))
+                            .tint(Theme.blue)
+                        ScrollView {
+                            VStack(spacing: 7) {
+                                ForEach(model.transferItems) { item in
+                                    HStack(spacing: 9) {
+                                        Image(systemName: item.failed ? "exclamationmark.circle.fill" :
+                                                item.finished ? "checkmark.circle.fill" : "arrow.left.arrow.right.circle")
+                                            .foregroundStyle(item.failed ? Theme.coral : Theme.blue)
+                                        Text(item.name).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+                                        Text(item.detail).lineLimit(1).frame(width: 160, alignment: .trailing)
+                                            .foregroundStyle(Theme.muted)
+                                            .help(item.detail)
+                                        if !item.finished {
+                                            ProgressView(value: item.progress).frame(width: 62)
+                                        }
+                                    }
+                                    .font(.system(size: 11))
+                                }
+                            }
+                        }
+                        .frame(maxHeight: 110)
+                    }
+                    .padding(12)
+                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
+                }
+                HStack(spacing: 16) {
+                    Button("Mac'e İndir") { Task { await model.downloadSelected() } }
+                        .disabled(model.selectedNames.isEmpty || model.busy)
+                    Button("Telefona Gönder") { Task { await model.upload() } }
+                        .disabled(model.peerLocations.isEmpty || model.busy)
+                    Spacer()
+                    Text(model.status).font(.system(size: 11)).foregroundStyle(Theme.muted).lineLimit(2)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Theme.blue)
+            }
+        }
+        .padding(28)
+        .frame(maxHeight: .infinity)
+        .sheet(isPresented: $showingScanner) {
+            VStack(spacing: 14) {
+                Text("Telefonun QR kodunu tara")
+                    .font(.system(size: 19, weight: .semibold))
+                MacQRScanner(onCode: { value in
+                    showingScanner = false
+                    code = value
+                    Task { await model.connect(value) }
+                }, onFailure: { message in
+                    showingScanner = false
+                    cameraIssue = message
+                })
+                .frame(width: 440, height: 320)
+                Button("Vazgeç") { showingScanner = false }
+            }
+            .padding(20)
+        }
+        .alert("Kamera kullanılamıyor", isPresented: Binding(
+            get: { cameraIssue != nil },
+            set: { if !$0 { cameraIssue = nil } }
+        )) {
+            Button("Tamam") { cameraIssue = nil }
+        } message: {
+            Text(cameraIssue ?? "")
+        }
+    }
+
+    @MainActor private func openScanner() async {
+        guard AVCaptureDevice.default(for: .video) != nil else {
+            cameraIssue = "Mac'e bağlı kamera bulunamadı. Harici kamera bağlayın veya telefondaki bağlantı kodunu bu ekrana yapıştırın."
+            return
+        }
+        let granted: Bool
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized: granted = true
+        case .notDetermined: granted = await AVCaptureDevice.requestAccess(for: .video)
+        default: granted = false
+        }
+        guard granted else {
+            cameraIssue = "Kamera izni verilmedi. Sistem Ayarları > Gizlilik ve Güvenlik > Kamera bölümünden izin verebilir veya bağlantı kodunu yapıştırabilirsiniz."
+            return
+        }
+        showingScanner = true
     }
 }
 
