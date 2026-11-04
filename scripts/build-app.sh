@@ -18,7 +18,8 @@ cat > dist/AndroidTransfer.app/Contents/Info.plist <<'PLIST'
 <key>CFBundleName</key><string>Android Transfer</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.1.0</string>
+<key>CFBundleShortVersionString</key><string>0.2.0</string>
+<key>CFBundleVersion</key><string>2</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>NSCameraUsageDescription</key><string>Telefonun bağlantı QR kodunu taramak için kamera kullanılır.</string>
 <key>NSLocalNetworkUsageDescription</key><string>Telefonla yerel ağ üzerinden dosya aktarımı için bağlantı kurulur.</string>

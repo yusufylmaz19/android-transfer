@@ -34,5 +34,9 @@ Uygulama `adb` aracını sırasıyla `ANDROID_HOME/platform-tools/adb`, `~/Libra
 - İlerleme çubuğu işlem durumunu gösterir; yüzde ve kalan süre yoktur.
 - Finder ile sürükle bırak ve dosya seçme penceresi farklı macOS sürümlerinde ayrıca doğrulanmalıdır.
 - Kablosuz kod şimdilik yalnızca özel IPv4 ağlarından istek kabul eden HTTP prototipidir; genel internete açılmamalıdır.
-- Kablosuz modda tek dosya kopyalama uygulanmıştır. Klasör kopyalama, büyük dosya akışı (Mac tarafı 64 MiB sınırı), aktarım ilerlemesi, taşıma/silme ve bağlantı kesintisinden devam etme eksiktir.
-- Mac ve Android arayüzleri derlendi; Samsung S24 üzerinde iki yönlü gerçek cihaz testi yapılmadı.
+- Kablosuz modda çoklu dosya kopyalama ve dosya bazında ilerleme var; klasör kopyalama, 64 MiB üzeri dosyalar, taşıma/silme ve bağlantı kesintisinden devam etme eksiktir.
+- USB aktarımı ve kablosuz temel akış Samsung S24 ile kullanıldı; her cihaz/ağ birleşimi ayrıca sınanmadı.
+
+## GitHub ön sürümü
+
+`v0.2.0-beta.1` için Mac uygulaması `0.2.0 (2)`, Android uygulaması `0.2.0+2` olarak paketlenir. `dist/release-v0.2.0-beta.1/` içindeki ZIP ve APK dosyaları GitHub Release varlığıdır; `SHA256SUMS.txt` indirilen dosyaları doğrulamak içindir. Kaynak kod commit'lerini önce GitHub'a gönderin, ardından bu etiketi güncel `master` commit'inden oluşturup **pre-release** işaretleyin. Android APK hâlâ geliştirme anahtarıyla imzalıdır; bu paket yerel test içindir.
